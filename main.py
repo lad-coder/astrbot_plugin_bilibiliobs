@@ -7,7 +7,7 @@ from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult, Mess
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger, AstrBotConfig
 
-@register("bili_live_notice", "Binbim", "B站UP主开播监测插件", "1.0.0", "https://github.com/Binbim/astrbot_plugin_BiliBiliOBS")
+@register("bili_live_notice", "Binbin&gealach", "B站UP主开播监测插件", "1.0.0", "https://github.com/Gal-criticism/astrbot_plugin_bilibiliobs")
 class BiliLiveNoticePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
