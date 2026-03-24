@@ -6,8 +6,9 @@ from typing import Dict
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult, MessageChain
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger, AstrBotConfig
+from astrbot.api.message_components import AtAll, Plain
 
-@register("bili_live_notice", "Binbim", "B站UP主开播监测插件", "1.0.0", "https://github.com/Binbim/astrbot_plugin_BiliBiliOBS")
+@register("bili_live_notice", "Binbin&gealach", "B站UP主开播监测插件", "1.0.0", "https://github.com/Gal-criticism/astrbot_plugin_bilibiliobs")
 class BiliLiveNoticePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -16,6 +17,7 @@ class BiliLiveNoticePlugin(Star):
         self.max_monitors = int(self.config.get("max_monitors", 50)) if isinstance(self.config, dict) else 50
         self.enable_notifications = bool(self.config.get("enable_notifications", True)) if isinstance(self.config, dict) else True
         self.enable_end_notifications = bool(self.config.get("enable_end_notifications", True)) if isinstance(self.config, dict) else True
+        self.enable_at_group = bool(self.config.get("enable_at_group", True)) if isinstance(self.config, dict) else True
         self.monitored_uids: Dict[str, Dict] = {}  # 存储监控的UP主信息
         self.live_status_cache: Dict[str, int] = {}  # 缓存直播状态
         self.uid_error_counts: Dict[str, int] = {}
@@ -84,6 +86,7 @@ class BiliLiveNoticePlugin(Star):
                     self.live_status_cache = data.get('live_status_cache', {})
                     self.enable_notifications = data.get('enable_notifications', self.enable_notifications)
                     self.enable_end_notifications = data.get('enable_end_notifications', self.enable_end_notifications)
+                    self.enable_at_group = data.get('enable_at_group', self.enable_at_group)
                     logger.info(f"已加载 {len(self.monitored_uids)} 个监控配置")
             else:
                 # 兼容旧路径迁移
@@ -95,6 +98,7 @@ class BiliLiveNoticePlugin(Star):
                         self.live_status_cache = data.get('live_status_cache', {})
                         self.enable_notifications = data.get('enable_notifications', self.enable_notifications)
                         self.enable_end_notifications = data.get('enable_end_notifications', self.enable_end_notifications)
+                        self.enable_at_group = data.get('enable_at_group', self.enable_at_group)
                         logger.info(f"已从旧路径迁移 {len(self.monitored_uids)} 个监控配置")
                     # 保存到新路径
                     await self.save_config()
@@ -110,7 +114,8 @@ class BiliLiveNoticePlugin(Star):
                 'monitored_uids': self.monitored_uids,
                 'live_status_cache': self.live_status_cache,
                 'enable_notifications': self.enable_notifications,
-                'enable_end_notifications': self.enable_end_notifications
+                'enable_end_notifications': self.enable_end_notifications,
+                'enable_at_group': self.enable_at_group
             }
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
@@ -275,22 +280,28 @@ class BiliLiveNoticePlugin(Star):
             if not self.enable_notifications:
                 logger.info("已禁用开播通知，跳过发送")
                 return
+            
+            unified_msg_origin = monitor_info.get("unified_msg_origin")
+            if not unified_msg_origin:
+                logger.warning(f"无法发送开播通知，缺少unified_msg_origin: {uid}")
+                return
+            
             uname = status_info.get("uname", "未知UP主")
             title = status_info.get("title", "无标题")
             room_id = status_info.get("room_id", 0)
+            
+            if self.enable_at_group:
+                at_chain = MessageChain([AtAll()])
+                await self.context.send_message(unified_msg_origin, at_chain)
             
             message = f"🔴 {uname} 开播啦！\n"
             message += f"📺 直播标题: {title}\n"
             message += f"🔗 直播间: https://live.bilibili.com/{room_id}"
             
-            # 使用AstrBot的消息发送机制
-            unified_msg_origin = monitor_info.get("unified_msg_origin")
-            if unified_msg_origin:
-                message_chain = MessageChain().message(message)
-                await self.context.send_message(unified_msg_origin, message_chain)
-                logger.info(f"开播通知已发送: {uname}")
-            else:
-                logger.warning(f"无法发送开播通知，缺少unified_msg_origin: {uid}")
+            message_chain = MessageChain([Plain(message)])
+            await self.context.send_message(unified_msg_origin, message_chain)
+            
+            logger.info(f"开播通知已发送: {uname}")
             
         except Exception as e:
             logger.error(f"发送开播通知失败: {e}")
@@ -490,6 +501,21 @@ class BiliLiveNoticePlugin(Star):
         except Exception as e:
             logger.error(f"获取插件状态失败: {e}")
             yield event.plain_result("❌ 获取插件状态失败")
+
+    @filter.command("测试atall")
+    async def test_at_all(self, event: AstrMessageEvent):
+        """测试@所有人功能"""
+        try:
+            unified_msg_origin = event.unified_msg_origin
+            if unified_msg_origin:
+                message_chain = MessageChain([AtAll(), Plain("测试@所有人功能")])
+                await self.context.send_message(unified_msg_origin, message_chain)
+                logger.info("测试at_all已发送")
+            else:
+                yield event.plain_result("❌ 无法获取消息来源")
+        except Exception as e:
+            logger.error(f"测试at_all失败: {e}")
+            yield event.plain_result(f"❌ 测试失败: {e}")
 
     @filter.command("开启通知")
     async def enable_notify_cmd(self, event: AstrMessageEvent):
