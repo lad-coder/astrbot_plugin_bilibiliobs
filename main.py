@@ -291,11 +291,15 @@ class BiliLiveNoticePlugin(Star):
             # 使用AstrBot的消息发送机制
             unified_msg_origin = monitor_info.get("unified_msg_origin")
             if unified_msg_origin:
-                if self.enable_at_group:
-                    message_chain = MessageChain([AtAll(), Plain(message)])
-                else:
-                    message_chain = MessageChain([Plain(message)])
+                # 发送第一条消息：开播通知内容
+                message_chain = MessageChain([Plain(message)])
                 await self.context.send_message(unified_msg_origin, message_chain)
+                
+                # 如果开启了at所有人，发送第二条@消息
+                if self.enable_at_group:
+                    at_chain = MessageChain([AtAll()])
+                    await self.context.send_message(unified_msg_origin, at_chain)
+                
                 logger.info(f"开播通知已发送: {uname}")
             else:
                 logger.warning(f"无法发送开播通知，缺少unified_msg_origin: {uid}")
