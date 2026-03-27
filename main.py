@@ -2,7 +2,7 @@ import asyncio
 import aiohttp
 import json
 import os
-from typing import Dict
+from typing import Dict, List
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult, MessageChain
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger, AstrBotConfig
