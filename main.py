@@ -764,6 +764,43 @@ class BiliLiveNoticePlugin(Star):
             logger.error(f"关闭关播通知失败: {e}")
             yield event.plain_result("❌ 关闭关播通知失败")
 
+    @filter.command("开启@所有人")
+    async def enable_at_all_cmd(self, event: AstrMessageEvent):
+        try:
+            self.enable_at_group = True
+            await self.save_config()
+            yield event.plain_result("✅ 已开启@所有人功能")
+        except Exception as e:
+            logger.error(f"开启@所有人功能失败: {e}")
+            yield event.plain_result("❌ 开启@所有人功能失败")
+
+    @filter.command("关闭@所有人")
+    async def disable_at_all_cmd(self, event: AstrMessageEvent):
+        try:
+            self.enable_at_group = False
+            await self.save_config()
+            yield event.plain_result("✅ 已关闭@所有人功能")
+        except Exception as e:
+            logger.error(f"关闭@所有人功能失败: {e}")
+            yield event.plain_result("❌ 关闭@所有人功能失败")
+
+    async def on_config_update(self, config: AstrBotConfig):
+        """配置更新时的回调方法"""
+        try:
+            if isinstance(config, dict):
+                # 更新配置
+                self.check_interval = int(config.get("check_interval", 60))
+                self.max_monitors = int(config.get("max_monitors", 50))
+                self.enable_notifications = bool(config.get("enable_notifications", True))
+                self.enable_end_notifications = bool(config.get("enable_end_notifications", True))
+                self.enable_at_group = bool(config.get("enable_at_group", True))
+                
+                # 保存配置到文件
+                await self.save_config()
+                logger.info("插件配置已更新")
+        except Exception as e:
+            logger.error(f"更新配置时出错: {e}")
+
     async def terminate(self):
         """插件销毁方法"""
         try:
