@@ -17,6 +17,7 @@ class BiliLiveNoticePlugin(Star):
         self.max_monitors = int(self.config.get("max_monitors", 50)) if isinstance(self.config, dict) else 50
         self.enable_notifications = bool(self.config.get("enable_notifications", True)) if isinstance(self.config, dict) else True
         self.enable_end_notifications = bool(self.config.get("enable_end_notifications", True)) if isinstance(self.config, dict) else True
+        self.at_all_blacklist = list(map(str, self.config.get("at_all_blacklist", []))) if isinstance(self.config, dict) else []
         self.enable_at_group = bool(self.config.get("enable_at_group", True)) if isinstance(self.config, dict) else True
         self.monitored_uids: Dict[str, List[Dict]] = {}  # 存储监控的UP主信息，每个UP主对应多个群
         self.live_status_cache: Dict[str, int] = {}  # 缓存直播状态
@@ -96,6 +97,7 @@ class BiliLiveNoticePlugin(Star):
                         self.enable_notifications = data.get('enable_notifications', self.enable_notifications)
                         self.enable_end_notifications = data.get('enable_end_notifications', self.enable_end_notifications)
                         self.enable_at_group = data.get('enable_at_group', self.enable_at_group)
+                        self.at_all_blacklist = data.get('at_all_blacklist', self.at_all_blacklist)
                         # 计算总监控数量（包括多个群的情况）
                         total_monitors = sum(len(groups) for groups in self.monitored_uids.values())
                         logger.info(f"已加载 {total_monitors} 个监控配置")
@@ -119,6 +121,7 @@ class BiliLiveNoticePlugin(Star):
                         self.enable_notifications = data.get('enable_notifications', self.enable_notifications)
                         self.enable_end_notifications = data.get('enable_end_notifications', self.enable_end_notifications)
                         self.enable_at_group = data.get('enable_at_group', self.enable_at_group)
+                        self.at_all_blacklist = data.get('at_all_blacklist', self.at_all_blacklist)
                         # 计算总监控数量（包括多个群的情况）
                         total_monitors = sum(len(groups) for groups in self.monitored_uids.values())
                         logger.info(f"已从旧路径迁移 {total_monitors} 个监控配置")
@@ -137,7 +140,8 @@ class BiliLiveNoticePlugin(Star):
                 'live_status_cache': self.live_status_cache,
                 'enable_notifications': self.enable_notifications,
                 'enable_end_notifications': self.enable_end_notifications,
-                'enable_at_group': self.enable_at_group
+                'enable_at_group': self.enable_at_group,
+                'at_all_blacklist': self.at_all_blacklist
             }
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
@@ -359,7 +363,7 @@ class BiliLiveNoticePlugin(Star):
                         continue
                     
                     # 尝试发送带@所有人的消息
-                    if self.enable_at_group:
+                    if self.enable_at_group and unified_msg_origin not in self.at_all_blacklist:
                         message_components = [AtAll(), Plain(message)]
                         message_chain = MessageChain(message_components)
                         
@@ -784,6 +788,37 @@ class BiliLiveNoticePlugin(Star):
             logger.error(f"关闭@所有人功能失败: {e}")
             yield event.plain_result("❌ 关闭@所有人功能失败")
 
+    @filter.command("开启群聊@所有人")
+    async def enable_at_all_group_cmd(self, event: AstrMessageEvent):
+        try:
+            if not self.enable_at_group:
+                yield event.plain_result("❌ @所有人功能未开启")
+                return
+            if event.unified_msg_origin not in self.at_all_blacklist:
+                yield event.plain_result("❌ 群聊已开启@所有人功能")
+                return
+            else:
+                self.at_all_blacklist.remove(event.unified_msg_origin)
+            await self.save_config()
+            yield event.plain_result("✅ 群聊已开启@所有人功能")
+        except Exception as e:
+            logger.error(f"群聊开启@所有人功能失败: {e}")
+            yield event.plain_result("❌ 群聊开启@所有人功能失败")
+
+    @filter.command("关闭群聊@所有人")
+    async def disable_at_all_group_cmd(self, event: AstrMessageEvent):
+        try:
+            if event.unified_msg_origin in self.at_all_blacklist:
+                yield event.plain_result("❌ 群聊已关闭@所有人功能")
+                return
+            else:
+                self.at_all_blacklist.append(event.unified_msg_origin)
+            await self.save_config()
+            yield event.plain_result("✅ 群聊已关闭@所有人功能")
+        except Exception as e:
+            logger.error(f"群聊关闭@所有人功能失败: {e}")
+            yield event.plain_result("❌ 群聊关闭@所有人功能失败")
+
     async def on_config_update(self, config: AstrBotConfig):
         """配置更新时的回调方法"""
         try:
@@ -794,7 +829,7 @@ class BiliLiveNoticePlugin(Star):
                 self.enable_notifications = bool(config.get("enable_notifications", True))
                 self.enable_end_notifications = bool(config.get("enable_end_notifications", True))
                 self.enable_at_group = bool(config.get("enable_at_group", True))
-                
+                self.at_all_blacklist = list(map(str, config.get("at_all_blacklist", [])))
                 # 保存配置到文件
                 await self.save_config()
                 logger.info("插件配置已更新")
