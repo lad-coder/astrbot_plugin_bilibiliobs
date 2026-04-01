@@ -82,6 +82,36 @@ pip install aiohttp>=3.8.0
 ```
 仅关闭关播通知
 
+#### 10. 开启@所有人
+```
+/开启@所有人
+```
+开启开播通知的@所有人功能（全局）
+
+#### 11. 关闭@所有人
+```
+/关闭@所有人
+```
+关闭开播通知的@所有人功能（全局）
+
+#### 12. 开启群聊@所有人
+```
+/开启群聊@所有人
+```
+在当前群聊中开启开播通知的@所有人功能
+
+#### 13. 关闭群聊@所有人
+```
+/关闭群聊@所有人
+```
+在当前群聊中关闭开播通知的@所有人功能
+
+#### 14. 测试@所有人
+```
+/测试atall
+```
+测试@所有人功能是否正常工作
+
 ### 配置项
 
 可在插件配置中设置以下选项（对应 `_conf_schema.json`）：
@@ -90,6 +120,7 @@ pip install aiohttp>=3.8.0
 - `max_monitors`：最大监控UP主数量，默认 50
 - `enable_notifications`：是否启用开播通知，默认启用
 - `enable_end_notifications`：是否启用关播通知，默认开启
+- `enable_at_group`：开播通知是否@所有人，默认开启
 
 示例：
 
@@ -97,7 +128,8 @@ pip install aiohttp>=3.8.0
 {
   "check_interval": 90,
   "max_monitors": 100,
-  "enable_notifications": true
+  "enable_notifications": true,
+  "enable_at_group": true
 }
 ```
 
